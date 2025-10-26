@@ -5,11 +5,11 @@ class Country(models.Model):
     capital = models.CharField(max_length=255, null=True, blank=True)
     region = models.CharField(max_length=255, null=True, blank=True)
     population = models.IntegerField()
-    currency_code = models.CharField(max_length=10, null=True, blank=True)
-    exchange_rate = models.FloatField(null=True, blank=True)
-    estimated_gdp = models.FloatField(null=True, blank=True)
-    flag_url = models.URLField(max_length=2048, null=True, blank=True)
-    last_refreshed_at = models.DateTimeField(auto_now=True)
+    flag_url = models.URLField(blank=True, null=True)
+    currency_code = models.CharField(max_length=10, blank=True, null=True)
+    exchange_rate = models.DecimalField(max_digits=20, decimal_places=4, blank=True, null=True)
+    estimated_gdp = models.DecimalField(max_digits=20, decimal_places=2, blank=True, null=True)
+
 
     def __str__(self):
         return self.name

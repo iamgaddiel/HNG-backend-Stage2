@@ -2,6 +2,8 @@ from .renderers import PNGRenderer
 import random
 from django.utils import timezone
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -16,11 +18,17 @@ class CountryRefresh(APIView):
             countries_url = "https://restcountries.com/v2/all?fields=name,capital,region,population,flag,currencies"
             exchange_rates_url = "https://open.er-api.com/v6/latest/USD"
 
-            countries_response = requests.get(countries_url)
+            retries = Retry(total=5, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
+            adapter = HTTPAdapter(max_retries=retries)
+            http = requests.Session()
+            http.mount("https://", adapter)
+
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+            countries_response = http.get(countries_url, timeout=10, headers=headers)
             countries_response.raise_for_status()
             countries_data = countries_response.json()
 
-            exchange_rates_response = requests.get(exchange_rates_url)
+            exchange_rates_response = http.get(exchange_rates_url, timeout=10, headers=headers)
             exchange_rates_response.raise_for_status()
             exchange_rates_data = exchange_rates_response.json()['rates']
 
@@ -77,14 +85,22 @@ class CountryRefresh(APIView):
         except IOError:
             font = ImageFont.load_default()
 
-        d.text((10,10), f"Total Countries: {status_obj.total_countries}", fill=(0,0,0), font=font)
-        d.text((10,40), f"Last Refresh: {status_obj.last_refreshed_at.strftime('%Y-%m-%d %H:%M:%S')}", fill=(0,0,0), font=font)
+        if status_obj:
+            d.text((10,10), f"Total Countries: {status_obj.total_countries}", fill=(0,0,0), font=font)
+            d.text((10,40), f"Last Refresh: {status_obj.last_refreshed_at.strftime('%Y-%m-%d %H:%M:%S')}", fill=(0,0,0), font=font)
+        else:
+            d.text((10,10), "Total Countries: N/A", fill=(0,0,0), font=font)
+            d.text((10,40), "Last Refresh: N/A", fill=(0,0,0), font=font)
+
         d.text((10,80), "Top 5 Countries by GDP:", fill=(0,0,0), font=font)
 
         y_pos = 110
-        for country in top_5_countries:
-            d.text((10, y_pos), f"- {country.name}: {country.estimated_gdp:,.2f}", fill=(0,0,0), font=font)
-            y_pos += 30
+        if top_5_countries:
+            for country in top_5_countries:
+                d.text((10, y_pos), f"- {country.name}: {country.estimated_gdp:,.2f}", fill=(0,0,0), font=font)
+                y_pos += 30
+        else:
+            d.text((10, y_pos), "- No top countries available.", fill=(0,0,0), font=font)
 
         img.save("cache/summary.png")
 
